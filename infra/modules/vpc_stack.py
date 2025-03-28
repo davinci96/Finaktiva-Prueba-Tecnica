@@ -26,3 +26,11 @@ class VpcStack(Stack):
                 )
             ]
         )
+
+        log_group = logs.LogGroup(self, "FlowLogGroup")
+
+        ec2.FlowLog(self, "VpcFlowLog",
+            resource_type=ec2.FlowLogResourceType.from_vpc(self.vpc),
+            traffic_type=ec2.FlowLogTrafficType.ALL,
+            log_destination=ec2.FlowLogDestination.to_cloud_watch_logs(log_group)
+        )
