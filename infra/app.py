@@ -1,11 +1,13 @@
 import json
 import os
 import aws_cdk as core
+from aws_cdk import Aspects
 from cdk_nag import AwsSolutionsChecks
 from modules.ecr_stack import EcrStack
 from modules.ecs_stack import EcsStack
 from modules.alb_stack import AlbStack
 from modules.vpc_stack import VpcStack
+from modules.cloudwatch_stack import CloudWatchStack
 
 account = os.getenv("ACCOUNT")
 

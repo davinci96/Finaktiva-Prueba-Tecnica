@@ -5,7 +5,7 @@ on:
       - release
       - develop
     paths:
-      - 'aws-Resrcs/**'
+      - 'infra/**'
 name: DeployInfra
 
 env:
@@ -39,7 +39,7 @@ jobs:
       - name: Load Environment Parameters
         run: |
           ENVIRONMENT="DEV"
-          PARAMS_FILE="${{ github.workspace }}/aws-Resrcs/aws_resrcs/env_params.json"
+          PARAMS_FILE="${{ github.workspace }}/infra/modules/env_params.json"
 
           echo "VpcCidr=$(jq -r ".$ENVIRONMENT.VpcCidr" $PARAMS_FILE)" >> $GITHUB_ENV
           echo "ECS_NAME=$(jq -r ".$ENVIRONMENT.ECS_NAME" $PARAMS_FILE)" >> $GITHUB_ENV
@@ -62,7 +62,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          cd ${{ github.workspace }}/aws-Resrcs
+          cd ${{ github.workspace }}/infra
           npm install -g aws-cdk
           pip install -r requirements.txt
 
@@ -72,7 +72,7 @@ jobs:
 
       - name: Run Checkov on CDK synthesized templates
         run: |
-          cd aws-Resrcs
+          cd infra
           mkdir -p cdk.out
           cdk synth > cdk.out/template.yaml
           checkov -f cdk.out/template.yaml --quiet --skip-check CKV_AWS_18
@@ -84,12 +84,12 @@ jobs:
 
       - name: Bootstrap CDK
         run: |
-          cd aws-Resrcs
+          cd infra
           cdk bootstrap
 
       - name: Deploy Infra
         run: |
-          cd aws-Resrcs
+          cd infra
           echo "Deploying to development environment..."
           cdk deploy VpcStack EcrStack --require-approval never
 
@@ -140,7 +140,7 @@ jobs:
       - name: Load Environment Parameters
         run: |
           ENVIRONMENT="DEV"
-          PARAMS_FILE="${{ github.workspace }}/aws-Resrcs/aws_resrcs/env_params.json"
+          PARAMS_FILE="${{ github.workspace }}/infra/modules/env_params.json"
 
           echo "VpcCidr=$(jq -r ".$ENVIRONMENT.VpcCidr" $PARAMS_FILE)" >> $GITHUB_ENV
           echo "ECS_NAME=$(jq -r ".$ENVIRONMENT.ECS_NAME" $PARAMS_FILE)" >> $GITHUB_ENV
@@ -152,7 +152,7 @@ jobs:
       - name: Install Dependencies
         run: |
           npm install -g aws-cdk
-          cd aws-Resrcs
+          cd infra
           ls -l
           pip install -r requirements.txt
 
@@ -162,25 +162,25 @@ jobs:
 
       - name: Run Checkov on CDK synthesized templates
         run: |
-          cd aws-Resrcs
+          cd infra
           mkdir -p cdk.out
           cdk synth > cdk.out/template.yaml
           checkov -f cdk.out/template.yaml --quiet --skip-check CKV_AWS_18
 
       - name: Bootstrap CDK
         run: |
-          cd aws-Resrcs
+          cd infra
           cdk bootstrap
 
       - name: Deploy ECS
         run: |
-          cd aws-Resrcs
+          cd infra
           echo "Deploying to development environment..."
           cdk deploy EcsStack --require-approval never
 
       - name: Deploy ALB
         run: |
-          cd aws-Resrcs
+          cd infra
           echo "Deploying to development environment..."
           cdk deploy AlbStack --require-approval never
 

@@ -2,6 +2,8 @@ import os
 from aws_cdk import Stack
 from aws_cdk import aws_ec2 as ec2
 from constructs import Construct
+from aws_cdk import aws_logs as logs
+from aws_cdk import aws_iam as iam
 
 class VpcStack(Stack):
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
@@ -25,4 +27,20 @@ class VpcStack(Stack):
                     cidr_mask=24
                 )
             ]
+        )
+
+
+        log_group = logs.LogGroup(self, "FlowLogGroup")
+
+        flow_log_role = iam.Role(self, "FlowLogsRole",
+            assumed_by=iam.ServicePrincipal("vpc-flow-logs.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name("CloudWatchLogsFullAccess")
+            ]
+        )
+
+        ec2.FlowLog(self, "VpcFlowLog",
+            resource_type=ec2.FlowLogResourceType.from_vpc(self.vpc),
+            traffic_type=ec2.FlowLogTrafficType.ALL,
+            destination=ec2.FlowLogDestination.to_cloud_watch_logs(log_group, flow_log_role)
         )
