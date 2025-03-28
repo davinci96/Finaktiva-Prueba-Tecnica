@@ -1,0 +1,47 @@
+*.swp
+package-lock.json
+__pycache__
+.pytest_cache
+.venv
+*.egg-info
+
+# CDK asset staging directory
+.cdk.staging
+cdk.out
+
+# Entorno virtual
+.venv/
+env/
+venv/
+
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Archivos de test o cache
+*.pytest_cache/
+*.coverage
+
+# Dependencias
+*.egg-info/
+.eggs/
+dist/
+build/
+pip-wheel-metadata/
+
+# Archivos de CDK
+cdk.out/
+
+# Configuración del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de logs
+*.log
+
+# Archivos de editor/IDE
+.vscode/
+.idea/
+*.swp

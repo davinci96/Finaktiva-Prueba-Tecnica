@@ -1,0 +1,16 @@
+{
+  "DEV": {
+    "VpcCidr": "10.10.0.0/16",
+    "ECS_NAME": "Prueba-finaktiva-dev",
+    "ECR_REPOSITORY": "repository-dev",
+    "LOAD_BALANCER_NAME": "alb-dev",
+    "ALLOWED_IPS": ["181.60.12.34/32", "190.85.24.5/32", "186.80.28.200/32"]
+  },
+  "PROD": {
+    "VpcCidr": "10.10.0.0/16",
+    "ECS_NAME": "Prueba-finaktiva-prod",
+    "ECR_REPOSITORY": "repository-prod",
+    "LOAD_BALANCER_NAME": "alb-prod",
+    "ALLOWED_IPS": ["181.60.12.34/32", "190.85.24.5/32", "186.80.28.200/32"]
+  }
+}
