@@ -1,188 +1,188 @@
-on:
-  push:
-    branches:
-      - main
-      - release
-      - develop
-    paths:
-      - 'infra/**'
-name: DeployInfra
+# on:
+#   push:
+#     branches:
+#       - main
+#       - release
+#       - develop
+#     paths:
+#       - 'infra/**'
+# name: DeployInfra
 
-env:
-    region: ${{ github.ref == 'refs/heads/develop' && 'us-east-1' || (github.ref == 'refs/heads/main' && 'us-east-2') || (github.ref == 'refs/heads/release' && 'us-west-2') }}
+# env:
+#     region: ${{ github.ref == 'refs/heads/develop' && 'us-east-1' || (github.ref == 'refs/heads/main' && 'us-east-2') || (github.ref == 'refs/heads/release' && 'us-west-2') }}
 
-jobs:
-  DeployDEV:
-    if: github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+# jobs:
+#   DeployDEV:
+#     if: github.ref == 'refs/heads/develop'
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v3
 
-      - name: Set Up Nodejs
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+#       - name: Set Up Nodejs
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: 20
 
-      - name: Set Up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+#       - name: Set Up Python
+#         uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.12'
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.region }}
+#       - name: Configure AWS Credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.region }}
 
-      - name: Load Environment Parameters
-        run: |
-          ENVIRONMENT="DEV"
-          PARAMS_FILE="${{ github.workspace }}/infra/modules/env_params.json"
+#       - name: Load Environment Parameters
+#         run: |
+#           ENVIRONMENT="DEV"
+#           PARAMS_FILE="${{ github.workspace }}/infra/modules/env_params.json"
 
-          echo "VpcCidr=$(jq -r ".$ENVIRONMENT.VpcCidr" $PARAMS_FILE)" >> $GITHUB_ENV
-          echo "ECS_NAME=$(jq -r ".$ENVIRONMENT.ECS_NAME" $PARAMS_FILE)" >> $GITHUB_ENV
-          echo "ECR_REPOSITORY=$(jq -r ".$ENVIRONMENT.ECR_REPOSITORY" $PARAMS_FILE)" >> $GITHUB_ENV
-          echo "LOAD_BALANCER_NAME=$(jq -r ".$ENVIRONMENT.LOAD_BALANCER_NAME" $PARAMS_FILE)" >> $GITHUB_ENV
+#           echo "VpcCidr=$(jq -r ".$ENVIRONMENT.VpcCidr" $PARAMS_FILE)" >> $GITHUB_ENV
+#           echo "ECS_NAME=$(jq -r ".$ENVIRONMENT.ECS_NAME" $PARAMS_FILE)" >> $GITHUB_ENV
+#           echo "ECR_REPOSITORY=$(jq -r ".$ENVIRONMENT.ECR_REPOSITORY" $PARAMS_FILE)" >> $GITHUB_ENV
+#           echo "LOAD_BALANCER_NAME=$(jq -r ".$ENVIRONMENT.LOAD_BALANCER_NAME" $PARAMS_FILE)" >> $GITHUB_ENV
 
-          echo "Environment variables loaded for $ENVIRONMENT."
+#           echo "Environment variables loaded for $ENVIRONMENT."
 
-      - name: Verify environment variables
-        run: |
-          echo "VpcCidr=$VpcCidr"
-          echo "ECS_NAME=$ECS_NAME"
-          echo "ECR_REPOSITORY=$ECR_REPOSITORY"
+#       - name: Verify environment variables
+#         run: |
+#           echo "VpcCidr=$VpcCidr"
+#           echo "ECS_NAME=$ECS_NAME"
+#           echo "ECR_REPOSITORY=$ECR_REPOSITORY"
 
-      - name: Set PATH for AWS CDK
-        run: |
-          export PATH=$PATH:$(npm bin -g)
-          echo "PATH updated to include npm global binaries"
-          echo "$PATH"
+#       - name: Set PATH for AWS CDK
+#         run: |
+#           export PATH=$PATH:$(npm bin -g)
+#           echo "PATH updated to include npm global binaries"
+#           echo "$PATH"
 
-      - name: Install Dependencies
-        run: |
-          cd ${{ github.workspace }}/infra
-          npm install -g aws-cdk
-          pip install -r requirements.txt
+#       - name: Install Dependencies
+#         run: |
+#           cd ${{ github.workspace }}/infra
+#           npm install -g aws-cdk
+#           pip install -r requirements.txt
 
-      - name: Install Checkov
-        run: |
-          pip install checkov
+#       - name: Install Checkov
+#         run: |
+#           pip install checkov
 
-      # - name: Run Checkov on CDK synthesized templates
-      #   run: |
-      #     cd infra
-      #     mkdir -p cdk.out
-      #     cdk synth > cdk.out/template.yaml
-      #     checkov -f cdk.out/template.yaml --quiet --skip-check CKV_AWS_18
+#       - name: Run Checkov on CDK synthesized templates
+#         run: |
+#           cd infra
+#           mkdir -p cdk.out
+#           cdk synth > cdk.out/template.yaml
+#           checkov -f cdk.out/template.yaml --quiet --skip-check CKV_AWS_18
 
-      # - name: Check CDK Availability
-      #   run: |
-      #     echo "Checking CDK version:"
-      #     cdk --version
+#       - name: Check CDK Availability
+#         run: |
+#           echo "Checking CDK version:"
+#           cdk --version
 
-      - name: Bootstrap CDK
-        run: |
-          cd infra
-          cdk bootstrap
+#       - name: Bootstrap CDK
+#         run: |
+#           cd infra
+#           cdk bootstrap
 
-      - name: Deploy Infra
-        run: |
-          cd infra
-          echo "Deploying to development environment..."
-          cdk deploy VpcStack EcrStack --require-approval never
+#       - name: Deploy Infra
+#         run: |
+#           cd infra
+#           echo "Deploying to development environment..."
+#           cdk deploy VpcStack EcrStack --require-approval never
 
-      - name: Login to Amazon ECR
-        run: |
-          aws ecr get-login-password --region ${{ env.region }} | \
-          docker login --username AWS --password-stdin \
-          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.region }}.amazonaws.com
+#       - name: Login to Amazon ECR
+#         run: |
+#           aws ecr get-login-password --region ${{ env.region }} | \
+#           docker login --username AWS --password-stdin \
+#           ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.region }}.amazonaws.com
 
-      - name: Build and Push Docker Images
-        run: |
-          APPS=("app1" "app2")
-          REPO_NAME=repository-dev
-          ECR_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.region }}.amazonaws.com/$REPO_NAME"
+#       - name: Build and Push Docker Images
+#         run: |
+#           APPS=("app1" "app2")
+#           REPO_NAME=repository-dev
+#           ECR_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.region }}.amazonaws.com/$REPO_NAME"
           
-          for APP in "${APPS[@]}"; do
-            echo "📦 Procesando $APP..."
-            docker build -t "$REPO_NAME:$APP" "./apps/$APP"
-            docker tag "$REPO_NAME:$APP" "$ECR_URI:$APP"
-            docker push "$ECR_URI:$APP"
-            echo "✅ Imagen $APP subida como $ECR_URI:$APP"
-          done
+#           for APP in "${APPS[@]}"; do
+#             echo "📦 Procesando $APP..."
+#             docker build -t "$REPO_NAME:$APP" "./apps/$APP"
+#             docker tag "$REPO_NAME:$APP" "$ECR_URI:$APP"
+#             docker push "$ECR_URI:$APP"
+#             echo "✅ Imagen $APP subida como $ECR_URI:$APP"
+#           done
 
-  Deploy-Ecs-Elb:
-    runs-on: ubuntu-latest
-    needs: DeployDEV
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v2
+#   Deploy-Ecs-Elb:
+#     runs-on: ubuntu-latest
+#     needs: DeployDEV
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v2
 
-      - name: Set Up Nodejs
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+#       - name: Set Up Nodejs
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: 20
 
-      - name: Set Up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+#       - name: Set Up Python
+#         uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.12'
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.region }}
+#       - name: Configure AWS Credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.region }}
 
-      - name: Load Environment Parameters
-        run: |
-          ENVIRONMENT="DEV"
-          PARAMS_FILE="${{ github.workspace }}/infra/modules/env_params.json"
+#       - name: Load Environment Parameters
+#         run: |
+#           ENVIRONMENT="DEV"
+#           PARAMS_FILE="${{ github.workspace }}/infra/modules/env_params.json"
 
-          echo "VpcCidr=$(jq -r ".$ENVIRONMENT.VpcCidr" $PARAMS_FILE)" >> $GITHUB_ENV
-          echo "ECS_NAME=$(jq -r ".$ENVIRONMENT.ECS_NAME" $PARAMS_FILE)" >> $GITHUB_ENV
-          echo "ECR_REPOSITORY=$(jq -r ".$ENVIRONMENT.ECR_REPOSITORY" $PARAMS_FILE)" >> $GITHUB_ENV
-          echo "LOAD_BALANCER_NAME=$(jq -r ".$ENVIRONMENT.LOAD_BALANCER_NAME" $PARAMS_FILE)" >> $GITHUB_ENV
+#           echo "VpcCidr=$(jq -r ".$ENVIRONMENT.VpcCidr" $PARAMS_FILE)" >> $GITHUB_ENV
+#           echo "ECS_NAME=$(jq -r ".$ENVIRONMENT.ECS_NAME" $PARAMS_FILE)" >> $GITHUB_ENV
+#           echo "ECR_REPOSITORY=$(jq -r ".$ENVIRONMENT.ECR_REPOSITORY" $PARAMS_FILE)" >> $GITHUB_ENV
+#           echo "LOAD_BALANCER_NAME=$(jq -r ".$ENVIRONMENT.LOAD_BALANCER_NAME" $PARAMS_FILE)" >> $GITHUB_ENV
 
-          echo "Environment variables loaded for $ENVIRONMENT."
+#           echo "Environment variables loaded for $ENVIRONMENT."
 
-      - name: Install Dependencies
-        run: |
-          npm install -g aws-cdk
-          cd infra
-          ls -l
-          pip install -r requirements.txt
+#       - name: Install Dependencies
+#         run: |
+#           npm install -g aws-cdk
+#           cd infra
+#           ls -l
+#           pip install -r requirements.txt
 
-      - name: Install Checkov
-        run: |
-          pip install checkov
+#       - name: Install Checkov
+#         run: |
+#           pip install checkov
 
-      - name: Run Checkov on CDK synthesized templates
-        run: |
-          cd infra
-          mkdir -p cdk.out
-          cdk synth > cdk.out/template.yaml
-          checkov -f cdk.out/template.yaml --quiet --skip-check CKV_AWS_18
+#       - name: Run Checkov on CDK synthesized templates
+#         run: |
+#           cd infra
+#           mkdir -p cdk.out
+#           cdk synth > cdk.out/template.yaml
+#           checkov -f cdk.out/template.yaml --quiet --skip-check CKV_AWS_18
 
-      - name: Bootstrap CDK
-        run: |
-          cd infra
-          cdk bootstrap
+#       - name: Bootstrap CDK
+#         run: |
+#           cd infra
+#           cdk bootstrap
 
-      - name: Deploy ECS
-        run: |
-          cd infra
-          echo "Deploying to development environment..."
-          cdk deploy EcsStack --require-approval never
+#       - name: Deploy ECS
+#         run: |
+#           cd infra
+#           echo "Deploying to development environment..."
+#           cdk deploy EcsStack --require-approval never
 
-      - name: Deploy ALB
-        run: |
-          cd infra
-          echo "Deploying to development environment..."
-          cdk deploy AlbStack --require-approval never
+#       - name: Deploy ALB
+#         run: |
+#           cd infra
+#           echo "Deploying to development environment..."
+#           cdk deploy AlbStack --require-approval never
 
 
 

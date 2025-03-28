@@ -15,7 +15,7 @@ env = core.Environment(account=account, region="us-east-1")
 
 
 app = core.App()
-# Aspects.of(app).add(AwsSolutionsChecks(verbose=True))
+Aspects.of(app).add(AwsSolutionsChecks(verbose=True))
 
 ecr_stack = EcrStack(app, "EcrStack")
 
