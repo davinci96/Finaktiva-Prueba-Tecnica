@@ -7,6 +7,7 @@ from modules.ecr_stack import EcrStack
 from modules.ecs_stack import EcsStack
 from modules.alb_stack import AlbStack
 from modules.vpc_stack import VpcStack
+from modules.cloudwatch_stack import CloudWatchStack
 
 account = os.getenv("ACCOUNT")
 
