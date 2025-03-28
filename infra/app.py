@@ -36,5 +36,6 @@ cloudwatch_stack = CloudWatchStack(app, "CloudWatchStack",
     env=env
 )
 
+
 app.synth()
 
