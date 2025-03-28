@@ -1,6 +1,7 @@
 import json
 import os
 import aws_cdk as core
+from aws_cdk import Aspects
 from cdk_nag import AwsSolutionsChecks
 from modules.ecr_stack import EcrStack
 from modules.ecs_stack import EcsStack
