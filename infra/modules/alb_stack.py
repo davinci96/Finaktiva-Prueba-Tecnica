@@ -11,7 +11,7 @@ class AlbStack(Stack):
         super().__init__(scope, id, **kwargs)
 
         load_balancer_name = os.getenv("LOAD_BALANCER_NAME")
-        allowed_ips = os.getenv("ALLOWED_IPS", "[]")
+        allowed_ips = json.loads(os.getenv("ALLOWED_IPS", "[]"))
 
         alb_sg = ec2.SecurityGroup(self, "AlbSG",
             vpc=vpc,
