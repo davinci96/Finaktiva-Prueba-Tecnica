@@ -184,6 +184,12 @@ jobs:
           echo "Deploying to development environment..."
           cdk deploy AlbStack --require-approval never
 
+      - name: Deploy CloudWatch
+        run: |
+          cd infra
+          echo "Deploying to development environment..."
+          cdk deploy CloudWatchStack --require-approval never
+
 
 
 
