@@ -1,0 +1,173 @@
+name: Build and Deploy to ECS
+
+on:
+  push:
+    branches:
+      - develop
+      - master
+    paths:
+      - 'apps/**'
+  workflow_dispatch:
+
+env:
+    AWS_REGION: ${{ github.ref == 'refs/heads/develop' && 'us-east-1' || (github.ref == 'refs/heads/main' && 'us-east-2') || (github.ref == 'refs/heads/release' && 'us-west-2') }}
+
+jobs:
+
+  trivy-scan:
+    name: 🔍 Trivy Security Scan
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    continue-on-error: true 
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install wget apt-transport-https gnupg lsb-release -y
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy -y
+
+      - name: Run Trivy scan on app1
+        run: |
+          echo "🔍 Scanning ./apps/app1..."
+          trivy fs ./apps/app1 \
+            --exit-code 1 \
+            --scanners vuln,secret,misconfig,license \
+            --include-dev-deps \
+            --db-repository public.ecr.aws/aquasecurity/trivy-db \
+            --java-db-repository public.ecr.aws/aquasecurity/trivy-java-db
+
+      - name: Run Trivy scan on app2
+        run: |
+          echo "🔍 Scanning ./apps/app2..."
+          trivy fs ./apps/app2 \
+            --exit-code 1 \
+            --scanners vuln,secret,misconfig,license \
+            --include-dev-deps \
+            --db-repository public.ecr.aws/aquasecurity/trivy-db \
+            --java-db-repository public.ecr.aws/aquasecurity/trivy-java-db
+
+
+  deploy:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install JQ
+        run: sudo apt-get install -y jq
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com
+
+      - name: Build and Push Docker Images
+        run: |
+          IFS=',' read -ra TAGS <<< "${{ secrets.AWS_ECR_IMAGE_TAGS }}"
+          IFS=',' read -ra DOCKERFILES <<< "${{ secrets.AWS_ECR_DOCKERFILES }}"
+          IFS=',' read -ra CONTEXTS <<< "${{ secrets.AWS_ECR_CONTEXTS }}"
+
+          for i in "${!TAGS[@]}"; do
+            TAG=${TAGS[$i]}
+            DOCKERFILE=${DOCKERFILES[$i]}
+            CONTEXT=${CONTEXTS[$i]}
+            IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/${{ secrets.AWS_ECR_REPOSITORY_NAME }}:$TAG
+
+            echo "🔧 Building and pushing image: $IMAGE_URI"
+            docker build -t $IMAGE_URI -f $DOCKERFILE $CONTEXT
+            docker push $IMAGE_URI
+          done
+
+      - name: Update ECS Services
+        run: |
+          IFS=',' read -ra TAGS <<< "${{ secrets.AWS_ECR_IMAGE_TAGS }}"
+          IFS=',' read -ra SERVICES <<< "${{ secrets.AWS_ECS_SERVICE_NAMES }}"
+          IFS=',' read -ra TASK_DEFS <<< "${{ secrets.AWS_ECS_TASK_DEFINITIONS }}"
+
+          for i in "${!TAGS[@]}"; do
+            TAG=${TAGS[$i]}
+            SERVICE_NAME=${SERVICES[$i]}
+            TASK_DEFINITION=${TASK_DEFS[$i]}
+            IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/${{ secrets.AWS_ECR_REPOSITORY_NAME }}:$TAG
+
+            echo "🔁 Updating ECS Service: $SERVICE_NAME with image $IMAGE_URI and task definition $TASK_DEFINITION"
+
+            CURRENT_REV=$(aws ecs describe-task-definition --task-definition $TASK_DEFINITION --query 'taskDefinition.revision' --output text)
+            aws ecs describe-task-definition --task-definition $TASK_DEFINITION:$CURRENT_REV \
+              --query 'taskDefinition' --output json > task-definition.json
+
+            jq --arg image "$IMAGE_URI" '.containerDefinitions[0].image = $image' task-definition.json > updated.json
+            jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' updated.json > final-task-definition.json
+
+            aws ecs register-task-definition --family $TASK_DEFINITION --cli-input-json file://final-task-definition.json
+
+            NEW_REV=$(aws ecs describe-task-definition --task-definition $TASK_DEFINITION --query 'taskDefinition.revision' --output text)
+
+            aws ecs update-service \
+              --cluster ${{ secrets.AWS_ECS_CLUSTER }} \
+              --service $SERVICE_NAME \
+              --task-definition $TASK_DEFINITION:$NEW_REV \
+              --deployment-configuration minimumHealthyPercent=50,maximumPercent=200
+          done
+
+
+  rollback:
+    name: Rollback ECS Services
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Rollback to previous ECS revision
+        run: |
+          IFS=',' read -ra SERVICES <<< "${{ secrets.AWS_ECS_SERVICE_NAMES }}"
+          IFS=',' read -ra TASK_DEFS <<< "${{ secrets.AWS_ECS_TASK_DEFINITIONS }}"
+
+          for i in "${!SERVICES[@]}"; do
+            SERVICE_NAME=${SERVICES[$i]}
+            TASK_DEFINITION_FAMILY=${TASK_DEFS[$i]}
+
+            echo "🔙 Getting current task definition for $SERVICE_NAME..."
+            CURRENT_TASK_DEF_ARN=$(aws ecs describe-services \
+              --cluster ${{ secrets.AWS_ECS_CLUSTER }} \
+              --services $SERVICE_NAME \
+              --query "services[0].taskDefinition" \
+              --output text)
+
+            CURRENT_REVISION=$(echo $CURRENT_TASK_DEF_ARN | awk -F':' '{print $NF}')
+            PREVIOUS_REVISION=$((CURRENT_REVISION - 1))
+
+            echo "↩️ Rolling back $SERVICE_NAME to revision $PREVIOUS_REVISION"
+
+            aws ecs update-service \
+              --cluster ${{ secrets.AWS_ECS_CLUSTER }} \
+              --service $SERVICE_NAME \
+              --task-definition "$TASK_DEFINITION_FAMILY:$PREVIOUS_REVISION" \
+              --force-new-deployment
+
+            echo "✅ Rolled back $SERVICE_NAME"
+          done

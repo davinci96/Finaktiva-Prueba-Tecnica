@@ -1,6 +1,7 @@
 import json
 import os
 import aws_cdk as core
+from cdk_nag import AwsSolutionsChecks
 from modules.ecr_stack import EcrStack
 from modules.ecs_stack import EcsStack
 from modules.alb_stack import AlbStack
@@ -12,6 +13,7 @@ env = core.Environment(account=account, region="us-east-1")
 
 
 app = core.App()
+Aspects.of(app).add(AwsSolutionsChecks(verbose=True))
 
 ecr_stack = EcrStack(app, "EcrStack")
 
